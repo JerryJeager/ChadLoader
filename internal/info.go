@@ -1,10 +1,13 @@
 package internal
 
 import (
+	"context"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/kkdai/youtube/v2"
+	"github.com/wader/goutubedl"
 )
 
 func GetYoutubeInfo(c *gin.Context) {
@@ -14,12 +17,18 @@ func GetYoutubeInfo(c *gin.Context) {
 		return
 	}
 
-	client := youtube.Client{}
-	video, err := client.GetVideo(url)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+	defer cancel()
+
+	result, err := goutubedl.New(ctx, url, goutubedl.Options{
+		Cookies: "/app/cookies.txt",
+	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	info := result.Info
 
 	targetQualities := map[string][]int{
 		"360p":  {18, 134, 243},
@@ -30,17 +39,26 @@ func GetYoutubeInfo(c *gin.Context) {
 	filtered := []gin.H{}
 	addedQualities := map[string]bool{}
 
-	for _, f := range video.Formats {
+	for _, f := range info.Formats {
+		formatID := 0
+		if f.FormatID != "" {
+			// Parse format ID string to int
+			var id int
+			if _, err := fmt.Sscanf(f.FormatID, "%d", &id); err == nil {
+				formatID = id
+			}
+		}
+
 		for label, itags := range targetQualities {
 			if addedQualities[label] {
 				continue
 			}
 			for _, id := range itags {
-				if f.ItagNo == id {
+				if formatID == id {
 					filtered = append(filtered, gin.H{
 						"quality": label,
-						"itag":    f.ItagNo,
-						"type":    f.MimeType,
+						"itag":    formatID,
+						"type":    f.Ext,
 					})
 					addedQualities[label] = true
 				}
@@ -48,29 +66,45 @@ func GetYoutubeInfo(c *gin.Context) {
 		}
 	}
 
-	var bestAudio *youtube.Format
-	for _, f := range video.Formats {
-		if f.AudioChannels > 0 && f.QualityLabel == "" { 
-			if bestAudio == nil || f.Bitrate > bestAudio.Bitrate {
-				bestAudio = &f
+	// Find best audio format
+	var bestAudio *goutubedl.Format
+	for i, f := range info.Formats {
+		// Audio-only formats typically have VCodec as "none"
+		if f.VCodec == "none" && f.ACodec != "none" {
+			if bestAudio == nil || f.ABR > bestAudio.ABR {
+				bestAudio = &info.Formats[i]
 			}
 		}
 	}
 
 	if bestAudio != nil {
+		formatID := 0
+		if bestAudio.FormatID != "" {
+			fmt.Sscanf(bestAudio.FormatID, "%d", &formatID)
+		}
 		filtered = append(filtered, gin.H{
 			"quality": "audio",
-			"itag":    bestAudio.ItagNo,
-			"type":    bestAudio.MimeType,
+			"itag":    formatID,
+			"type":    bestAudio.Ext,
+		})
+	}
+
+	// Build thumbnails array
+	thumbnails := []gin.H{}
+	for _, thumb := range info.Thumbnails {
+		thumbnails = append(thumbnails, gin.H{
+			"url":    thumb.URL,
+			"width":  thumb.Width,
+			"height": thumb.Height,
 		})
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"title":       video.Title,
-		"author":      video.Author,
-		"description": video.Description,
-		"thumbnails":  video.Thumbnails,
-		"date":        video.PublishDate,
+		"title":       info.Title,
+		"author":      info.Uploader,
+		"description": info.Description,
+		"thumbnails":  thumbnails,
+		"date":        info.UploadDate,
 		"formats":     filtered,
 	})
 }

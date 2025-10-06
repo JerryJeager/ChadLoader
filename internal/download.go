@@ -35,7 +35,10 @@ func DownloadYoutubeVideo(c *gin.Context) {
 
 	// Fetch video info with yt-dlp
 	ctx := context.Background()
-	vid, err := goutubedl.New(ctx, url, goutubedl.Options{})
+	vid, err := goutubedl.New(ctx, url, goutubedl.Options{
+		Cookies: "/app/cookies.txt",
+	})
+
 	if err != nil {
 		log.Printf("Error during New: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch video info", "details": err.Error()})
