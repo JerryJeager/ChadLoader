@@ -30,8 +30,8 @@ COPY --from=builder /app/chadloader .
 # Copy cookies.txt 
 COPY cookies.txt /app/cookies.txt
 
-# Ensure yt-dlp can find cookies
-ENV YT_DLP_COOKIES=/app/cookies.txt
+# This command ensures all users can read the cookies.txt file.
+RUN chmod 644 /app/cookies.txt
 
 EXPOSE 8080
 CMD ["./chadloader"]
