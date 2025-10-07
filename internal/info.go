@@ -1,14 +1,19 @@
 package internal
 
 import (
+	// _ "embed"
 	"context"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/wader/goutubedl"
 )
+
+// var cookiesTxt string
 
 func GetYoutubeInfo(c *gin.Context) {
 	url := c.Query("url")
@@ -20,8 +25,14 @@ func GetYoutubeInfo(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
 
+	cookiesPath := "/app/cookies.txt"
+	if _, err := os.Stat(cookiesPath); os.IsNotExist(err) {
+		log.Printf("Warning: Cookies file %s does not exist. This will likely cause auth errors.", cookiesPath)
+	} else if err != nil {
+		log.Printf("Warning: Cookies file %s is inaccessible: %v", cookiesPath, err)
+	}
 	result, err := goutubedl.New(ctx, url, goutubedl.Options{
-		Cookies: "/app/cookies.txt",
+		Cookies: cookiesPath,
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

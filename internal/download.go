@@ -1,6 +1,7 @@
 package internal
 
 import (
+	// _ "embed"
 	"context"
 	"fmt"
 	"io"
@@ -15,6 +16,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/wader/goutubedl"
 )
+
+// var cookiesTxt string
 
 func DownloadYoutubeVideo(c *gin.Context) {
 	url := c.Query("url")
@@ -33,10 +36,16 @@ func DownloadYoutubeVideo(c *gin.Context) {
 
 	log.Printf("Fetching video info for: %s (itag: %d)", url, itag)
 
+	cookiesPath := "/app/cookies.txt"
+	if _, err := os.Stat(cookiesPath); os.IsNotExist(err) {
+		log.Printf("Warning: Cookies file %s does not exist. This will likely cause auth errors.", cookiesPath)
+	} else if err != nil {
+		log.Printf("Warning: Cookies file %s is inaccessible: %v", cookiesPath, err)
+	}
 	// Fetch video info with yt-dlp
 	ctx := context.Background()
 	vid, err := goutubedl.New(ctx, url, goutubedl.Options{
-		Cookies: "/app/cookies.txt",
+		Cookies: cookiesPath,
 	})
 
 	if err != nil {
