@@ -25,7 +25,7 @@ func GetYoutubeInfo(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
 
-	cookiesPath := "app/cookies.txt"
+	cookiesPath := "/app/cookies.txt"
 	if _, err := os.Stat(cookiesPath); os.IsNotExist(err) {
 		log.Printf("Warning: Cookies file %s does not exist. This will likely cause auth errors.", cookiesPath)
 	} else if err != nil {

@@ -36,7 +36,7 @@ func DownloadYoutubeVideo(c *gin.Context) {
 
 	log.Printf("Fetching video info for: %s (itag: %d)", url, itag)
 
-	cookiesPath := "app/cookies.txt"
+	cookiesPath := "/app/cookies.txt"
 	if _, err := os.Stat(cookiesPath); os.IsNotExist(err) {
 		log.Printf("Warning: Cookies file %s does not exist. This will likely cause auth errors.", cookiesPath)
 	} else if err != nil {
